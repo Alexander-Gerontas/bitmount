@@ -12,7 +12,9 @@ struct SettingsView: View {
             Toggle(isOn: $openFinder) {
                 Text("Open in Finder after mounting", bundle: .module)
             }
-            Toggle(isOn: Binding(get: { opensAtLogin }, set: setOpensAtLogin)) {
+            // A closure, not `set: setOpensAtLogin`: passing the method itself crashes the
+            // compiler in Swift 6.1 and 6.3.
+            Toggle(isOn: Binding(get: { opensAtLogin }, set: { setOpensAtLogin($0) })) {
                 Text("Open BitMount at login", bundle: .module)
                 Text("Drives set to unlock automatically need BitMount running.", bundle: .module)
             }
