@@ -1,0 +1,10 @@
+.build/
+.index-build/
+build/
+dist/
+DerivedData/
+.DS_Store
+.idea/
+*.xcuserstate
+xcuserdata/
+NOTES.md
