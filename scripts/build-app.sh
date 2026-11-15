@@ -29,5 +29,7 @@ codesign --force --deep --sign - "$app"
 codesign --verify --deep --strict "$app"
 
 zip="dist/BitMount-$version.zip"
-ditto -c -k --keepParent "$app" "$zip"
+# Without these two options the zip carries "._" metadata files. Finder drops them,
+# but `unzip` puts them inside the app, which breaks its signature.
+ditto -c -k --norsrc --noextattr --keepParent "$app" "$zip"
 echo "$zip"
