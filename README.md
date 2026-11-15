@@ -38,7 +38,7 @@ Early. It has been tested by hand on one drive: a BitLocker volume with a passwo
   anylinuxfs init
   ```
 
-- To build from source: Xcode 16 or later, or the Command Line Tools with Swift 6.
+- To build from source: Xcode 16 or later. The Command Line Tools alone are not enough.
 
 ## Download
 
@@ -50,6 +50,20 @@ macOS blocks the first launch of a downloaded copy. To open it:
 2. Open System Settings → Privacy & Security and choose **Open Anyway**.
 
 You do this once for each version. An app you build yourself from source is not blocked.
+
+## Install with Homebrew
+
+Instead of downloading the zip, you can install the same build with Homebrew:
+
+```bash
+brew tap alexander-gerontas/bitmount https://github.com/Alexander-Gerontas/bitmount
+brew trust alexander-gerontas/bitmount
+brew install bitmount
+```
+
+Then start it with `bitmount`. Homebrew keeps the app in its own folder, not in Applications. macOS does not block a copy installed this way.
+
+To update, run `brew upgrade bitmount`.
 
 ## Build and run
 
