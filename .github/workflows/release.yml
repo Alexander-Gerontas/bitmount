@@ -1,0 +1,90 @@
+name: Release
+
+# A pushed tag such as v0.2.0 builds the app and publishes a release with the zip.
+# A manual run only builds: the zip is kept as a workflow artifact, nothing is published.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    # The same Xcode the app is developed and tested with.
+    runs-on: xcode-27
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read the version
+        id: version
+        run: |
+          version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Sources/BitMount/Resources/AppInfo.plist)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "zip=dist/BitMount-$version.zip" >> "$GITHUB_OUTPUT"
+
+      - name: Check that the tag matches the version
+        if: github.ref_type == 'tag'
+        env:
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if [[ "$TAG" != "v$VERSION" ]]; then
+            echo "::error::Tag $TAG does not match version $VERSION in AppInfo.plist"
+            exit 1
+          fi
+
+      - name: Test
+        run: |
+          swift --version
+          swift test
+
+      - name: Build the app and the zip
+        run: ./scripts/build-app.sh
+
+      - name: Check that the zip unpacks to a valid app
+        env:
+          ZIP: ${{ steps.version.outputs.zip }}
+        run: |
+          unzip -q "$ZIP" -d "$RUNNER_TEMP/unpacked"
+          codesign --verify --deep --strict "$RUNNER_TEMP/unpacked/BitMount.app"
+          lipo -archs "$RUNNER_TEMP/unpacked/BitMount.app/Contents/MacOS/BitMount"
+          shasum -a 256 "$ZIP"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          path: ${{ steps.version.outputs.zip }}
+          archive: false
+          if-no-files-found: error
+
+      - name: Publish the release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ steps.version.outputs.version }}
+          ZIP: ${{ steps.version.outputs.zip }}
+        run: |
+          sum="$(shasum -a 256 "$ZIP" | cut -d ' ' -f 1)"
+          cat > "$RUNNER_TEMP/notes.md" <<EOF
+          **Use at your own risk.** Back up anything you cannot afford to lose before you mount a drive read-write.
+
+          ## Install
+
+          1. Download \`BitMount-$VERSION.zip\` below and unzip it.
+          2. Move \`BitMount.app\` to Applications and open it once. macOS blocks this first launch.
+          3. Open System Settings → Privacy & Security and choose **Open Anyway**.
+
+          BitMount needs an Apple Silicon Mac, macOS 15 or later and [anylinuxfs](https://github.com/nohajc/anylinuxfs). See the [README](https://github.com/$GITHUB_REPOSITORY#requirements).
+
+          SHA-256 of \`BitMount-$VERSION.zip\`: \`$sum\`
+          EOF
+          gh release create "$TAG" "$ZIP" \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --title "BitMount $VERSION" \
+            --notes-file "$RUNNER_TEMP/notes.md" \
+            --generate-notes
